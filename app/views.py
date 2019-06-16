@@ -44,7 +44,7 @@ class RegisterView(Resource):
         return response
 
 
-class LoginView(Resource):
+class CorrectLoginView(Resource):
     def post(self):
         data = request.json
         photo = data['photo']
@@ -65,11 +65,9 @@ class LoginView(Resource):
                 time.sleep(3)
         detected_person = json.loads(r.text)['detected person']
 
-        if detected_person == json.loads(r.text)['detected person']:  # TODO change
-            response = {'request': 'login', 'status': 'OK', 'detected_person': '8d1d56f0891f5c532330383f17e097e9'}
-        elif detected_person != 'Unknown':
+        if detected_person != 'Unknown':
             response = {'request': 'login', 'status': 'OK', 'detected_person': detected_person}
         else:
             response = {'request': 'login', 'status': 'Not OK', 'detected_person': detected_person}
-
+        print(response)
         return response
