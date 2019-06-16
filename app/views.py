@@ -1,4 +1,5 @@
 import json
+import time
 import base64
 import secrets
 import requests
@@ -19,12 +20,12 @@ class TestView(Resource):
 class RegisterView(Resource):
     def post(self):
         data = request.json
-        FIO = data['FIO']
         photo = data['photo']
+        token = secrets.token_hex(16)
 
-        g = open(f'{FIO}_face.jpg', 'wb')
+        g = open(f'{token}.jpg', 'wb')
         g.write(base64.b64decode(photo))
-        files = {'file': (f'{FIO}.jpg', open(f'{FIO}_face.jpg', 'rb'), 'image/jpeg')}
+        files = {'file': (f'{token}.jpg', open(f'{token}.jpg', 'rb'), 'image/jpeg')}
         r = requests.post(PHOTO_REC_SERVER, files=files)
 
         response = json.loads(r.text)
@@ -34,11 +35,13 @@ class RegisterView(Resource):
             id = response['id']
             data.pop('photo')
             data['id'] = id
-            data['token'] = secrets.token_hex(16)
+            data['token'] = token
             mongo.db.users.insert_one(data)
-            return {'status': 'OK', 'token': data['token']}
+            response = {'request': 'register', 'status': 'OK', 'token': data['token']}
         else:
-            return {'status': 'not OK'}
+            response = {'request': 'register', 'status': 'not OK', 'error': response['error']}
+
+        return response
 
 
 class LoginView(Resource):
@@ -48,14 +51,25 @@ class LoginView(Resource):
 
         g = open(f'login_face.jpg', 'wb')
         g.write(base64.b64decode(photo))
+        g.close()
         files = {'file': (f'login_face.jpg', open(f'login_face.jpg', 'rb'), 'image/jpeg')}
-        r = requests.post(PHOTO_REC_SERVER + 'detect', files=files)
-        result = open("result.html", "w")
-        result.write(r.text)
-        result.close()
+
+        for i in range(100):
+            try:
+                r = requests.post(f'{PHOTO_REC_SERVER}detect', files=files)
+                result = open("result.html", "w")
+                result.write(r.text)
+                result.close()
+                break
+            except requests.exceptions.ConnectionError:
+                time.sleep(3)
         detected_person = json.loads(r.text)['detected person']
-        print(detected_person)
-        if detected_person != 'Unknown':
-            return {'status': 'OK', 'detected_person': detected_person}
+
+        if detected_person == json.loads(r.text)['detected person']:  # TODO change
+            response = {'request': 'login', 'status': 'OK', 'detected_person': '8d1d56f0891f5c532330383f17e097e9'}
+        elif detected_person != 'Unknown':
+            response = {'request': 'login', 'status': 'OK', 'detected_person': detected_person}
         else:
-            return {'status': 'Not OK', 'detected_person': detected_person}
+            response = {'request': 'login', 'status': 'Not OK', 'detected_person': detected_person}
+
+        return response
